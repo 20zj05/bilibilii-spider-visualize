@@ -1,62 +1,66 @@
-# 01_spider.py  最终稳定版（B站官方API）
+# 01_spider.py
 import requests
 import pandas as pd
-import os
+import matplotlib.pyplot as plt
+import seaborn as sns
 import time
 
-# 创建数据文件夹
-if not os.path.exists("data"):
-    os.mkdir("data")
+# 设置中文字体，防止可视化图表中文乱码（Windows系统常用SimHei，Mac系统可用Arial Unicode MS）
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 
-# B站 全站热门榜 官方API（最稳定，永不失效）
-url = "https://api.bilibili.com/x/web-interface/ranking/v2?rid=0&type=all"
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Referer": "https://www.bilibilibili.com/"
-}
 
-print("正在从 B站官方API 获取热门数据...")
+def fetch_bilibili_rankings():
+    """
+    1. 数据抓取模块：通过B站官方API获取排行榜数据
+    """
+    # 伪装成真实浏览器，规避基础反爬
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.bilibili.com/'
+    }
 
-try:
-    response = requests.get(url, headers=headers, timeout=10)
-    response.raise_for_status()
-    data = response.json()
+    # B站排行榜API接口
+    url = 'https://api.bilibili.com/x/web-interface/ranking/v2?rid=0&type=all'
 
-    # 提取视频列表
-    video_list = data["data"]["list"]
-    result = []
+    try:
+        print("正在爬取B站排行榜数据...")
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()  # 检查HTTP请求是否成功
+        data = response.json()
 
-    for video in video_list:
-        # 安全获取数据
-        title = video.get("title", "")
-        bvid = video.get("bvid", "")
-        up_name = video["owner"].get("name", "")
-        play = video["stat"].get("view", 0)
-        danmaku = video["stat"].get("danmaku", 0)
-        like = video["stat"].get("like", 0)
-        favorite = video["stat"].get("favorite", 0)
-        share = video["stat"].get("share", 0)
-        pub_time = video.get("pubdate", 0)
+        if data['code'] == 0:
+            video_list = []
+            # 2. 数据解析与提取
+            for item in data['data']['list']:
+                video_info = {
+                    '排名': item.get('rank', 0),
+                    '标题': item.get('title', ''),
+                    'UP主': item.get('owner', {}).get('name', ''),
+                    '播放量': item.get('stat', {}).get('view', 0),
+                    '弹幕数': item.get('stat', {}).get('danmaku', 0),
+                    '点赞数': item.get('stat', {}).get('like', 0),
+                    '投币数': item.get('stat', {}).get('coin', 0),
+                    '收藏数': item.get('stat', {}).get('favorite', 0),
+                    '分享数': item.get('stat', {}).get('share', 0),
+                    '分区': item.get('tname', ''),
+                    '视频时长(秒)': item.get('duration', 0),
+                    '综合得分': item.get('pts', 0)
+                }
+                video_list.append(video_info)
+            print(f"成功爬取 {len(video_list)} 条视频数据！")
+            return video_list
+        else:
+            print(f"API请求失败，错误码: {data['message']}")
+            return []
+    except Exception as e:
+        print(f"爬取过程中发生异常: {str(e)}")
+        return []
 
-        result.append({
-            "排名": len(result) + 1,
-            "标题": title,
-            "BV号": bvid,
-            "UP主": up_name,
-            "播放量": play,
-            "弹幕数": danmaku,
-            "点赞数": like,
-            "收藏数": favorite,
-            "分享数": share,
-            "发布时间": pub_time
-        })
 
-    # 保存CSV
-    df = pd.DataFrame(result)
-    df.to_csv("data/bilibili_hot_raw.csv", index=False, encoding="utf-8-sig")
-
-    print(f"\n✅ 爬取成功！共 {len(result)} 条数据")
-    print("📁 已保存到：data/bilibili_hot_raw.csv")
-
-except Exception as e:
-    print("❌ 出错了：", e)
+if __name__ == "__main__":
+    raw_data = fetch_bilibili_rankings()
+    if raw_data:
+        df_raw = pd.DataFrame(raw_data)
+        df_raw.to_csv("data/bilibili_hot_raw.csv", index=False, encoding="utf-8-sig")
+        print("原始爬虫数据已保存至 data/bilibili_hot_raw.csv")
