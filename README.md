@@ -14,6 +14,7 @@ py选修课大作业，一个爬虫可视化
 ├── spider.py            # 第1步：B站热门爬虫代码
 ├── clean.py             # 第2步：数据清洗代码
 ├── visualize.py         # 第3步：画图 + 分析代码
+├── predict.py           #第4步：未来预测
 ├── requirements.txt        # 依赖文件
 └── README.md               # 项目说明
 
